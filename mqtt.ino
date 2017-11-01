@@ -1,32 +1,21 @@
-/*
- *  This sketch sends data via HTTP GET requests to data.sparkfun.com service.
- *
- *  You need to get streamId and privateKey at data.sparkfun.com and paste them
- *  below. Or just customize this script to talk to other HTTP servers.
- *
- */
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
+#include <ArduinoJson.h> //5.7.0
+
 
 const char* ssid     = "IoTcel";
 const char* password = "12348765";
 
-int value = 0;
 unsigned long lastTime = 0;
 
 const char* MQTT_SERVER = "iot.franciscocalaca.com";
 WiFiClient CLIENT;
 PubSubClient MQTT(CLIENT);
 
-
 void setup() {
   Serial.begin(115200);
   delay(10);
-  pinMode(5, OUTPUT);
-
-  // We start by connecting to a WiFi network
+  pinMode(2, OUTPUT);
 
   Serial.println();
   Serial.println();
@@ -49,61 +38,57 @@ void setup() {
   MQTT.setCallback(callback);
 }
 
-
-void reconectar() {
-  while (!MQTT.connected()) {
-    Serial.println("Conectando ao Broker MQTT.");
-    if (MQTT.connect("ESP8266")) {
-      Serial.println("Conectado com Sucesso ao Broker");
-      MQTT.subscribe("hello/world");
-    } else {
-      Serial.print("Falha ao Conectador, rc=");
-      Serial.print(MQTT.state());
-      Serial.println(" tentando se reconectar...");
-      delay(3000);
-    }
-  }
-}
-
 void callback(char* topic, byte* payload, unsigned int length){
     DynamicJsonBuffer jsonBuffer;
     String json = (char*)payload;
     Serial.println(json);
     JsonObject& rootRead = jsonBuffer.parseObject(json);
-    const char* sensor = rootRead["sensor"];
-    const char* t             = rootRead["time"];
-    long   number              = rootRead["number"].as<long>();
-    
-    Serial.println(sensor);
-    Serial.println(t);
-    Serial.println(number);
-    Serial.println("=========================");
+    long s = rootRead["number"];
+    Serial.println(s);
     payload = 0;
-    if(number == 1){
-      digitalWrite(5, HIGH);
+    if(s == 1){
+      digitalWrite(2, HIGH);
       Serial.println("...ligar");
     }else{
-      digitalWrite(5, LOW);
+      digitalWrite(2, LOW);
+      Serial.println("...desligar");
     }
 }
 
+
+void reconnect() {
+  while (!MQTT.connected()) {
+    if (MQTT.connect("ESP8266-Francisco")) {
+      MQTT.subscribe("hello/world");
+    } else {
+      Serial.print(".");
+      delay(3000);
+    }
+  }
+}
+
+
 void loop() {
   if (!MQTT.connected()) {
-    reconectar();
+    reconnect();
   }
   MQTT.loop();
 
   unsigned long now = millis();
   if((lastTime + 5000) < now){
-    DynamicJsonBuffer jsonBuffer;
     lastTime = now;
-    ++value;
+
+    DynamicJsonBuffer jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    root["sensor"] = "temp";
-    root["time"] = value;
+    root["temp"] = 20;
+    root["humid"] = 70;
+    root["time"] = 123;
+    root["id"] = "Francisco";
     String msg;
     root.printTo(msg);
-    MQTT.publish("temp/random", msg.c_str());
+    Serial.println(msg);
+    MQTT.publish("temp/real", msg.c_str());
+    
+
   }
 }
-
